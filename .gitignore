@@ -1,0 +1,14 @@
+# Irrelevant repo files
+__pycache__/
+.venv/
+venv/
+
+# Data files
+data/
+
+
+# Irrelevant files
+questions.txt
+limitations.txt
+.env
+Summary Home Assignment.pdf

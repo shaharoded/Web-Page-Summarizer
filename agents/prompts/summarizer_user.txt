@@ -1,0 +1,6 @@
+### TASK:
+Provide a high-quality summary of the content above. 
+Ensure it adheres to the 1,500-character limit.
+
+### SOURCE CONTENT:
+{source}

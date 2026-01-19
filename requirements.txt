@@ -1,0 +1,7 @@
+tiktoken
+openai
+scikit-learn
+pandas
+
+jinja2
+matplotlib

@@ -1,0 +1,38 @@
+{
+  "type": "json_schema",
+  "json_schema": {
+    "name": "summary_judge",
+    "strict": true,
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["justifications", "scores"],
+      "properties": {
+        "justifications": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relevance", "faithfulness", "coherence", "fluency", "conciseness"],
+          "properties": {
+            "relevance": { "type": "string" },
+            "faithfulness": { "type": "string" },
+            "coherence": { "type": "string" },
+            "fluency": { "type": "string" },
+            "conciseness": { "type": "string" }
+          }
+        },
+        "scores": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relevance", "faithfulness", "coherence", "fluency", "conciseness"],
+          "properties": {
+            "relevance": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "faithfulness": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "coherence": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "fluency": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "conciseness": { "type": "integer", "minimum": 1, "maximum": 5 }
+          }
+        }
+      }
+    }
+  }
+}

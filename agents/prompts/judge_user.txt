@@ -1,0 +1,11 @@
+### EVALUATION STEPS:
+1. Read the source content carefully and identify the main points.
+2. Compare the summary against these points for Relevance.
+3. Verify every fact in the summary against the source for Faithfulness.
+4. Assess the writing style for Coherence and Fluency.
+
+### SOURCE CONTENT:
+{source}
+
+### CANDIDATE SUMMARY:
+{summary}
