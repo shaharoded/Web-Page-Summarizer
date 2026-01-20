@@ -52,63 +52,61 @@ Web-Page-Summarizer/
 ```mermaid
 flowchart TB
     subgraph Data["📊 Data Preparation"]
-        A[Baseline 1K Dataset<br/>Original Summaries] --> B[GPT-5.2 Gold Standard<br/>Generation ≤1500 chars]
-        B --> C{Training Criteria<br/>≤1500 chars<br/>AND ≤64K tokens}
-        C -->|Meets Both| D[Training Candidates]
-        C -->|Fails Either| E[Validation Set<br/>Diverse Samples]
-        D --> F[Select ~50%<br/>for Training]
-        F --> G[Training Set<br/>Up to 500 samples]
-        D -->|Remainder| E
-        E --> H[Benchmark Subset<br/>99 samples 20%]
-        A --> I[Baseline Benchmark<br/>99 matched samples]
+        A[Baseline 1K Dataset<br/>Original Summaries] --> B[GPT-5.2 Gold Standard<br/>~1K summaries]
+        B --> C{Split ~50%-50%<br/>with constraints}
+        C -->|≤1500 chars<br/>AND ≤64K tokens| D[Training Set<br/>Up to 500 samples]
+        C -->|Remaining| E[Validation Set<br/>~500 samples]
+        E --> F{Sample 20%<br/>≤250K tokens}
+        F --> G[Benchmark Subset<br/>99 samples]
+        A --> H[Baseline Benchmark<br/>99 matched samples]
     end
 
     subgraph Train["🎓 Model Distillation"]
-        D --> H[SFT Training<br/>3 epochs]
-        H --> I[GPT-4.1-mini<br/>Fine-tuned]
-        H --> J[GPT-4.1-nano<br/>Fine-tuned]
+        D --> I[SFT Training<br/>3 epochs]
+        I --> J[GPT-4.1-mini<br/>Fine-tuned]
+        I --> K[GPT-4.1-nano<br/>Fine-tuned]
     end
 
     subgraph Eval["⚖️ Benchmarking Pipeline"]
-        F --> K{Model Type?}
-        G --> K
-        K -->|Baseline| L[Load Existing<br/>Summaries]
-        K -->|Other Models| M[Run Inference<br/>+ Track Latency]
+        E --> L{Model Type?}
+        G --> L
+        L -->|Baseline| M[Load Existing<br/>Summaries]
+        L -->|Other Models| N[Run Inference<br/>+ Track Latency]
         
-        L --> N[LLM-as-Judge<br/>GPT-5.2 Evaluation]
-        M --> N
+        M --> O[LLM-as-Judge<br/>GPT-5.2 Evaluation]
+        N --> O
         
-        N --> O[Multi-Dimensional<br/>Scoring]
-        O --> P[Relevance 1-5]
-        O --> Q[Faithfulness 1-5]
-        O --> R[Coherence 1-5]
-        O --> S[Fluency 1-5]
-        O --> T[Conciseness 1-5]
+        O --> P[Multi-Dimensional<br/>Scoring]
+        P --> Q[Relevance 1-5]
+        P --> R[Faithfulness 1-5]
+        P --> S[Coherence 1-5]
+        P --> T[Fluency 1-5]
+        P --> U[Conciseness 1-5]
         
-        P & Q & R & S & T --> U[Aggregate Statistics<br/>+ Cost Analysis]
-        U --> V[📈 Results DataFrame<br/>Quality vs Cost vs Latency]
+        Q & R & S & T & U --> V[Aggregate Statistics<br/>+ Cost Analysis]
+        V --> W[📈 Results DataFrame<br/>Quality vs Cost vs Latency]
     end
 
     subgraph Models["🤖 Models Tested"]
-        W1[Baseline]
-        W2[gpt-4o-mini]
-        W3[gpt-4.1-mini/nano]
-        W4[ft:gpt-4.1-mini/nano]
-        W5[gpt-5-nano/mini]
-        W6[gpt-5.2]
+        X1[Baseline]
+        X2[gpt-4o-mini]
+        X3[gpt-4.1-mini/nano]
+        X4[ft:gpt-4.1-mini/nano]
+        X5[gpt-5-nano/mini]
+        X6[gpt-5.2]
     end
 
-    I --> K
-    J --> K
-    W1 & W2 & W3 & W4 & W5 & W6 -.->|Evaluated| K
+    J --> L
+    K --> L
+    X1 & X2 & X3 & X4 & X5 & X6 -.->|Evaluated| L
 
     style A fill:#e1f5ff
     style B fill:#fff4e1
-    style F fill:#ffe1f5
+    style D fill:#ffe1f5
     style I fill:#e8ffe1
     style J fill:#e8ffe1
-    style N fill:#ffe1e1
-    style V fill:#f0e1ff
+    style O fill:#ffe1e1
+    style W fill:#f0e1ff
 ```
 
 ### 1. LLM Engine (`agents/llm.py`)
