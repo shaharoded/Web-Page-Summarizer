@@ -117,6 +117,7 @@ Core wrapper around OpenAI API with:
 - **Model Validation**: Support for base models and fine-tuned models (format: `ft:base-model:org::job-id`)
 - **Parameter Adjustment**: Wrapper can work with many model families despite differences in API.
 - **Input Reduction**: Context trimming to optimize costs while preserving key information
+- **Map-Summarize-Reduce** mechanism to allow long context windows (optional).
 
 ### 2. Summarization Agent (`agents/summarizer.py`)
 
@@ -125,6 +126,7 @@ Generates concise, high-quality summaries of web page content:
 - Template-based prompting for consistency
 - Cost tracking per request
 - Input reduction for cost optimization
+- Retry mechanism to respect output length requirements
 
 ### 3. Evaluation Agent (`agents/judge.py`)
 

@@ -68,7 +68,7 @@ class BenchmarkingSuite:
                 # 1. Sequential Inference & Latency Tracking with progress bar
                 for item in tqdm(eval_data, desc=f"[{model_idx}/{total_models}] Inference", unit="sample"):
                     start_time = time.perf_counter()
-                    summary, cost = summarizer.summarize(item['markdown_content'], get_cost=True)
+                    summary, cost = summarizer.summarize(item['markdown_content'], get_cost=True, allow_long_context=True)
                     end_time = time.perf_counter()
                     
                     latency = end_time - start_time

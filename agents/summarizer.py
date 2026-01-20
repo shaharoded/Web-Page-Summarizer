@@ -1,5 +1,4 @@
 import os
-import concurrent.futures
 
 # Local Code
 from agents.llm import LLMEngine
@@ -35,56 +34,7 @@ class Summarizer:
             raise ValueError(f"Prompt template '{filename}' is empty or not as expected.")
         return content
     
-    def _map_reduce_summarize(self, content):
-        """
-        Splits large documents into manageable chunks and reduces them.
-        Uses parallel execution (ThreadPool) for better performance.
-        Chunks based on tokens to respect context limits.
-        Uses a small overlap to maintain context across splits.
-
-        NOTE: using this option increases cost due to prompt overhead and multiple jobs.
-        NOTE: Overlap size and chunking strategy can be tuned as needed. A static window will work for sentences / links, but not for tables / large sections.
-        """
-        # 1. Encode content to tokens
-        all_tokens = self.engine.tokenizer.encode(content)
-        
-        # 2. Split tokens into chunks with overlap
-        overlap = 50  # Overlap to prevent losing context across splits
-        stride = self.context_limit - overlap
-        
-        token_chunks = [
-            all_tokens[i : i + self.context_limit] 
-            for i in range(0, len(all_tokens), stride)
-        ]
-        
-        # 3. Decode back to strings (ensures valid text boundaries)
-        chunks = [self.engine.tokenizer.decode(chk) for chk in token_chunks]
-        
-        # Map Phase: Summarize each chunk in parallel
-        sub_summaries = []
-        total_map_cost = 0.0
-
-        def process_chunk(chunk):
-            # No nested retries prevents infinite loops in sub-tasks
-            return self.summarize(chunk, get_cost=True, max_retries=0)
-        
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Use map to ensure results are returned in order
-            results = executor.map(process_chunk, chunks)
-            
-            for summary, cost in results:
-                if summary:
-                    sub_summaries.append(summary)
-                    total_map_cost += cost
-            
-        # Reduce Phase: Combine sub-summaries
-        combined_text = "\n\n".join(sub_summaries)
-        
-        # Final Reduce
-        final_summary, reduce_cost = self.summarize(combined_text, get_cost=True)
-        return final_summary, total_map_cost + reduce_cost
-    
-    def summarize(self, content, get_cost=True, max_retries=5, allow_long_context=False):
+    def summarize(self, content, get_cost=True, max_retries=5, allow_long_context=False, reduce_input=True):
         """
         Standardizes the summarization request format.
         Respects max_chars limit via self-correction loop.
@@ -94,24 +44,34 @@ class Summarizer:
             get_cost (bool): Whether to return cost along with summary.
             max_retries (int): Number of retries for length enforcement.
             allow_long_context (bool): Whether to enable handling of long content via Map-Reduce.
+            reduce_input (bool): Whether to minify content before processing.
         Deployment-ready.
+
+        NOTE: This method may make multiple API calls internally to enforce length limits, or if long content handling is enabled, which may increase cost.
         """
         total_cost = 0.0
         
-        # 1. Check for Long Context (Map-Reduce Trigger)
-        tokens = self.engine.count_tokens(content)
-        if allow_long_context and tokens > self.context_limit:
-            final_summary, cost = self._map_reduce_summarize(content)
-            total_cost += cost
-        else:
-            # Standard single-pass summary
-            user_prompt = self.user_template.format(source=content)
-            messages = [
-                {"role": "system", "content": self.system_template},
-                {"role": "user", "content": user_prompt}
-            ]
-            final_summary, cost = self.engine.generate(messages, reduce_input=True, get_cost=True)
-            total_cost += cost
+        # Prepare messages
+        user_prompt = self.user_template.format(source=content)
+        messages = [
+            {"role": "system", "content": self.system_template},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        # Generate summary (engine handles map-reduce if needed)
+        final_summary, cost = self.engine.generate(
+            messages, 
+            reduce_input=reduce_input, 
+            get_cost=True,
+            allow_long_context=allow_long_context
+        )
+        total_cost += cost
+        
+        # Handle failed API call
+        if final_summary is None:
+            if get_cost:
+                return None, total_cost
+            return None
 
         # 2. Length Enforcement Loop (Self-Correction)
         retry_count = 0

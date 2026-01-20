@@ -2,6 +2,7 @@ import os
 import re
 import tiktoken
 from openai import OpenAI
+import concurrent.futures
 
 # Local Code
 from agents.config import RATES, CONTEXT_WINDOW
@@ -212,9 +213,129 @@ class LLMEngine:
         """Calculates USD cost based on current model rates."""
         rate = self.rates[self.model] # Rates already validated in __init__, no KeyError expected
         return (prompt_tokens / 1e6 * rate["input"]) + (completion_tokens / 1e6 * rate["output"])
+    
+    def _map_reduce_generate(self, messages, temperature=0.0, response_format=None, get_cost=False, get_tokens_count=False):
+        """
+        Handles long context by splitting into chunks and processing in parallel.
+        Called internally by generate() when content exceeds context limits.
+        
+        Args:
+            messages: List of message dicts (only processes 'user' role content for chunking)
+            temperature: Temperature parameter (if supported)
+            response_format: Response format specification
+            get_cost: Whether to return cost
+            get_tokens_count: Whether to return token counts
+        """
+        # Use a reasonable chunk size with buffer for map-reduce operations
+        # If context_limit is small (< 5000), use it directly; otherwise apply buffer
+        if self.context_limit < 5000:
+            chunk_context_limit = self.context_limit
+        else:
+            chunk_context_limit = self.context_limit - 5000  # Buffer for prompt overhead
+        
+        # Extract user content (assume last user message is the long content)
+        user_content = None
+        user_msg_idx = None
+        for idx, msg in enumerate(messages):
+            if msg['role'] == 'user':
+                user_content = msg['content']
+                user_msg_idx = idx
+        
+        if user_content is None:
+            # No user content to chunk, fall back to standard generation
+            return self.generate(messages, temperature, response_format, get_cost, get_tokens_count, reduce_input=False, allow_long_context=False)
+        
+        # 1. Encode content to tokens
+        all_tokens = self.tokenizer.encode(user_content)
+        
+        # 2. Split tokens into chunks with overlap
+        overlap = 50  # Overlap to prevent losing context across splits
+        stride = chunk_context_limit - overlap
+        
+        token_chunks = [
+            all_tokens[i : i + chunk_context_limit] 
+            for i in range(0, len(all_tokens), stride)
+        ]
+        
+        # 3. Decode back to strings (ensures valid text boundaries)
+        chunks = [self.tokenizer.decode(chk) for chk in token_chunks]
+        
+        # Map Phase: Process each chunk in parallel
+        sub_results = []
+        total_map_cost = 0.0
+        total_map_tokens = (0, 0)
+        
+        def process_chunk(chunk):
+            # Create messages for this chunk
+            chunk_messages = messages.copy()
+            chunk_messages[user_msg_idx] = {'role': 'user', 'content': chunk}
+            # Prevent infinite recursion by disabling allow_long_context
+            return self.generate(chunk_messages, temperature, response_format, 
+                               get_cost=True, get_tokens_count=True, 
+                               reduce_input=False, allow_long_context=False)
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Use map to ensure results are returned in order
+            results = executor.map(process_chunk, chunks)
+            
+            for result in results:
+                if result is None:
+                    continue
+                
+                # process_chunk always returns (content, cost, tokens)
+                content, cost, tokens = result
+                
+                if content:
+                    sub_results.append(content)
+                    total_map_cost += cost
+                    total_map_tokens = (total_map_tokens[0] + tokens[0], total_map_tokens[1] + tokens[1])
+        
+        # Reduce Phase: Combine sub-results
+        combined_text = "\n\n".join(sub_results)
+        
+        # Create final messages with combined content
+        final_messages = messages.copy()
+        final_messages[user_msg_idx] = {'role': 'user', 'content': combined_text}
+        
+        # Final reduce call (without allow_long_context to prevent recursion)
+        if get_tokens_count:
+            final_result, reduce_cost, reduce_tokens = self.generate(
+                final_messages, temperature, response_format, 
+                get_cost=True, get_tokens_count=True, 
+                reduce_input=False, allow_long_context=False
+            )
+            total_cost = total_map_cost + reduce_cost
+            total_tokens = (total_map_tokens[0] + reduce_tokens[0], total_map_tokens[1] + reduce_tokens[1])
+            
+            if get_cost:
+                return final_result, total_cost, total_tokens
+            else:
+                return final_result, total_tokens
+        else:
+            final_result, reduce_cost = self.generate(
+                final_messages, temperature, response_format, 
+                get_cost=True, get_tokens_count=False, 
+                reduce_input=False, allow_long_context=False
+            )
+            total_cost = total_map_cost + reduce_cost
+            
+            if get_cost:
+                return final_result, total_cost
+            else:
+                return final_result
 
-    def generate(self, messages, temperature=0.0, response_format=None, get_cost=False, get_tokens_count=False, reduce_input=False):
-        """Single request handler with integrated cost tracking."""
+    def generate(self, messages, temperature=0.0, response_format=None, get_cost=False, get_tokens_count=False, reduce_input=False, allow_long_context=False):
+        """Single request handler with integrated cost tracking and optional map-reduce for long content.
+        
+        Args:
+            messages: List of message dicts
+            temperature: Temperature parameter (if supported by model)
+            response_format: Response format specification
+            get_cost: Whether to return cost
+            get_tokens_count: Whether to return token counts
+            reduce_input: Whether to minify content before processing
+            allow_long_context: Whether to use map-reduce for content exceeding context limits
+        """
         # Optionally reduce input size for cost / time savings
         if reduce_input:
             for msg in messages:
@@ -227,6 +348,22 @@ class LLMEngine:
                         strip_navigation=True,
                         normalize_whitespace=True
                     )
+        
+        # Check if map-reduce is needed (after cleaning)
+        if allow_long_context:
+            # Count tokens in user content
+            total_tokens = 0
+            for msg in messages:
+                if msg['role'] == 'user':
+                    total_tokens += self.count_tokens(msg['content'])
+            
+            context_limit = self.context_limit - 5000  # Buffer for prompt overhead
+            if total_tokens > context_limit:
+                # Use map-reduce strategy
+                return self._map_reduce_generate(
+                    messages, temperature, response_format, 
+                    get_cost, get_tokens_count
+                )
 
         # Build API call parameters, excluding temperature if not supported
         api_params = {
