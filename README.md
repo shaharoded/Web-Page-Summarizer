@@ -55,7 +55,7 @@ flowchart TB
         A[Baseline 1K Dataset<br/>Original Summaries] --> B[GPT-5.2 Gold Standard<br/>Generation ≤1500 chars]
         B --> C{Training Criteria<br/>≤1500 chars<br/>AND ≤64K tokens}
         C -->|Meets Both| D[Training Candidates]
-        C -->|Fails Either| E[Validation Set<br/>(diverse samples)]
+        C -->|Fails Either| E[Validation Set<br/>Diverse Samples]
         D --> F[Select ~50%<br/>for Training]
         F --> G[Training Set<br/>Up to 500 samples]
         D -->|Remainder| E
