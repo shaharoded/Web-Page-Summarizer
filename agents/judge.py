@@ -32,18 +32,14 @@ class SummarizationJudge:
         if '{source}' not in self.user_template or '{summary}' not in self.user_template:
             raise ValueError("User prompt template must contain '{source}' and '{summary}' placeholders.")
         
-        # Load output schema for structured response
+        # Load response_format for structured response (load once, reuse for all evaluations)
         try:
             with open(os.path.join(self.prompt_repo, "judge_schema.json"), "r", encoding="utf-8") as f:
-                schema_data = json.load(f)
-                # Extract just the schema object from the full response_format structure
-                self.output_schema = schema_data["json_schema"]["schema"]
+                self.response_format = json.load(f)
         except FileNotFoundError:
             raise FileNotFoundError(f"JSON schema file not found: {os.path.join(self.prompt_repo, 'judge_schema.json')}")
         except json.JSONDecodeError:
             raise ValueError(f"JSON schema file is not a valid JSON: {os.path.join(self.prompt_repo, 'judge_schema.json')}")
-        except KeyError:
-            raise ValueError(f"JSON schema file has unexpected structure: {os.path.join(self.prompt_repo, 'judge_schema.json')}")
 
     def _load_template(self, filename):
         """Retrieves prompt templates from the local repository, raises if not found or empty."""
@@ -72,26 +68,16 @@ class SummarizationJudge:
         ]
 
         # Use the engine for the actual API call, optionally retrieving cost
-        # Will return output and cost if get_cost is True, else just output
-        response_format = {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "summary_evaluation",
-                "schema": self.output_schema,
-                "strict": True
-            }
-        }
-        
         if get_cost:
             raw_output, cost = self.engine.generate(
                 messages=messages, 
-                response_format=response_format,
+                response_format=self.response_format,
                 get_cost=True
             )
         else:
             raw_output = self.engine.generate(
                 messages=messages, 
-                response_format=response_format,
+                response_format=self.response_format,
                 get_cost=False
             )
         

@@ -264,6 +264,31 @@ Create a `.env` file or set environment variable:
 OPENAI_API_KEY=your_api_key_here
 ```
 
+### Running Tests
+
+The project includes comprehensive unit tests for all agents and core functionality:
+
+```bash
+# Run all tests
+python -m pytest tests/ -v
+
+# Or using unittest
+python -m unittest discover tests/ -v
+
+# Run specific test file
+python -m unittest tests.test_agents -v
+```
+
+**Test Coverage:**
+- ✅ LLM Engine validation (model families, API keys, rates)
+- ✅ Tokenizer initialization and fallbacks
+- ✅ Temperature parameter support validation
+- ✅ Fine-tuned model format parsing
+- ✅ Summarizer agent initialization and templates
+- ✅ Judge agent initialization and schema loading
+- ✅ Map-reduce functionality for long contexts
+- ✅ Cost calculation and token counting
+
 ## Limitations
 
 1. The G-Eval benchmark relies on the underlying LLM capabilities and was not formally evaluated using human annotators to validate it's accuracy. Internal validation of the judge CoT is also important for production grade, ensuring scoring variance, criteria adherance etc.

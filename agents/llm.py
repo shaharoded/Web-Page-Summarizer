@@ -41,40 +41,47 @@ class LLMEngine:
         except Exception as e:
             raise RuntimeError(f"Failed to initialize OpenAI client: {e}")
         try:
-            self.tokenizer = tiktoken.encoding_for_model(model)
-        except KeyError:
-            # For future/unknown models, find the closest known tokenizer
-            fallback_model = self._find_closest_tokenizer(model)
-            print(f"Warning: Model '{model}' not recognized by tiktoken. Using '{fallback_model}' tokenizer as fallback.")
-            self.tokenizer = tiktoken.encoding_for_model(fallback_model)
+            self.tokenizer = self._find_closest_tokenizer(model)
         except Exception as e:
             raise RuntimeError(f"Failed to initialize tokenizer for model '{model}': {e}")
 
     def _find_closest_tokenizer(self, model):
-        """Find the closest available tokenizer for an unknown model by trying progressively simpler versions."""
+        """Resolve to a usable tokenizer, trying sensible fallbacks in order."""
         model_lower = model.lower()
-        
+
         # Fine-tuned models: extract base model from "ft:base-model:org::id" format
         if model_lower.startswith("ft:"):
             parts = model_lower.split(":")
             if len(parts) >= 2:
-                model_lower = parts[1]  # Get the base model name
-        
+                model_lower = parts[1]
+
+        def try_tokenizer(name, is_encoding):
+            return tiktoken.get_encoding(name) if is_encoding else tiktoken.encoding_for_model(name)
+
+        attempts = []
+
+        # 1) Direct attempt on the provided model name
+        attempts.append((model, False, "direct match"))
+
+        # 2) Known modern families → explicit encodings shipped by tiktoken
+        family_to_encoding = [
+            (r'^gpt-4o', "o200k_base"),
+            (r'^gpt-4\.1', "o200k_base"),
+            (r'^o[1-4]', "o200k_base"),
+            (r'^gpt-5', "o200k_base"),
+        ]
+        for pattern, encoding_name in family_to_encoding:
+            if re.match(pattern, model_lower):
+                attempts.append((encoding_name, True, f"family mapping {pattern}"))
+
+        # 3) Progressive simplification of model names
         candidates = []
-        
-        # Extract model family and version to generate fallback candidates
-        # For gpt-5.2-2025-12-11 → try gpt-5.2, gpt-5.1, gpt-5, gpt-4o
-        # For gpt-4.1-2025-04-14 → try gpt-4.1, gpt-4o
-        # For o1-mini → try o1, gpt-4o
-        
-        # Check for GPT models (gpt-X.Y-date or gpt-X-variant)
         gpt_match = re.match(r'^(gpt-(\d+)(?:\.(\d+))?)(?:-.*)?$', model_lower)
         if gpt_match:
-            base = gpt_match.group(1)  # e.g., "gpt-5.2" or "gpt-5"
-            major = int(gpt_match.group(2))  # e.g., 5
-            minor = gpt_match.group(3)  # e.g., "2" or None
-            
-            # Add the base version without date
+            base = gpt_match.group(1)
+            major = int(gpt_match.group(2))
+            minor = gpt_match.group(3)
+
             candidates.append(base)
             
             # If there's a minor version, try decrementing it
@@ -99,17 +106,33 @@ class LLMEngine:
         
         # Always fall back to gpt-4o as the final option
         candidates.append("gpt-4o")
-        
-        # Try each candidate until one works
         for candidate in candidates:
-            try:
-                tiktoken.encoding_for_model(candidate)
-                return candidate
-            except KeyError:
+            attempts.append((candidate, False, "candidate model fallback"))
+
+        # 4) Known encodings as a last pass
+        for encoding_name in ["o200k_base", "cl100k_base", "p50k_base"]:
+            attempts.append((encoding_name, True, "encoding fallback"))
+
+        seen = set()
+        for name, is_encoding, reason in attempts:
+            key = (name, is_encoding)
+            if key in seen:
                 continue
-        
-        # If nothing works, return gpt-4o (should always work)
-        return "gpt-4o"
+            seen.add(key)
+            try:
+                tokenizer = try_tokenizer(name, is_encoding)
+                if reason != "direct match":
+                    print(
+                        f"Warning: Model '{model}' not recognized by tiktoken. "
+                        f"Using '{name}' tokenizer ({reason})."
+                    )
+                return tokenizer
+            except Exception:
+                continue
+
+        # Absolute last resort
+        print("Warning: Falling back to 'cl100k_base' tokenizer.")
+        return tiktoken.get_encoding("cl100k_base")
     
     def _validate_model_family(self):
         """Validates that model belongs to supported families: 4o, 4.1, o1-o4, or >=5."""
