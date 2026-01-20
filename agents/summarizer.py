@@ -34,7 +34,7 @@ class Summarizer:
             raise ValueError(f"Prompt template '{filename}' is empty or not as expected.")
         return content
     
-    def summarize(self, content, get_cost=True, max_retries=5, allow_long_context=False, reduce_input=True):
+    def summarize(self, content, get_cost=True, max_retries=8, allow_long_context=False, reduce_input=True):
         """
         Standardizes the summarization request format.
         Respects max_chars limit via self-correction loop.
@@ -77,12 +77,12 @@ class Summarizer:
         retry_count = 0
         while len(final_summary) > self.max_chars and retry_count < max_retries:
             retry_count += 1
-            print(f"Summary length ({len(final_summary)}) exceeds limit. Retrying ({retry_count})...")
+            restriction = self.max_chars - (retry_count - 1) * 100 # Every retry make requirement stricter by 100 chars
             
             refine_messages = [
                 {"role": "system", "content": self.system_template},
                 {"role": "user", "content": f"The following page summary is too long ({len(final_summary)} chars). "
-                                           f"Please rewrite it to be under {self.max_chars} characters while "
+                                           f"Please rewrite it to be under {restriction} characters while "
                                            f"retaining all key facts:\n\n{final_summary}"}
             ]
             final_summary, cost = self.engine.generate(refine_messages, get_cost=True)

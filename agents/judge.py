@@ -108,11 +108,23 @@ class SummarizationJudge:
                 return None, 0.0
             return None
         
-        # Add length score to the evaluation
+        # Add length score to the evaluation with gradual penalization
         evaluation = json.loads(raw_output)
         char_length = len(candidate_summary)
-        evaluation["justifications"]["length"] = f"Longer than {length_limit} chars limit" if char_length > length_limit else f"Within limit {length_limit} chars limit"
-        evaluation["scores"]["length"] = 5 if char_length <= length_limit else 1
+        
+        # Gradual penalization: 5 for <=1500, linear decrease to 1 by 2000, 1 for >=2000
+        if char_length <= length_limit:
+            length_score = 5
+            evaluation["justifications"]["length"] = f"Within {length_limit} chars limit ({char_length} chars)"
+        elif char_length >= 2000:
+            length_score = 1
+            evaluation["justifications"]["length"] = f"Far exceeds limit: {char_length} chars (>2000)"
+        else:
+            # Linear interpolation between 5 and 1 for lengths between 1500 and 2000
+            length_score = 5 - 4 * (char_length - length_limit) / (2000 - length_limit)
+            evaluation["justifications"]["length"] = f"Exceeds limit: {char_length} chars (target: {length_limit})"
+        
+        evaluation["scores"]["length"] = round(length_score, 2)
 
         if get_cost:
             return evaluation, cost

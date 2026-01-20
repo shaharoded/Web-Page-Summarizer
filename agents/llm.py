@@ -351,11 +351,13 @@ class LLMEngine:
         
         # Check if map-reduce is needed (after cleaning)
         if allow_long_context:
-            # Count tokens in user content
+            # Count tokens in ALL messages (system + user + formatting overhead)
             total_tokens = 0
             for msg in messages:
-                if msg['role'] == 'user':
-                    total_tokens += self.count_tokens(msg['content'])
+                total_tokens += self.count_tokens(msg['content'])
+            
+            # Add overhead for message formatting (roles, JSON structure, etc.)
+            total_tokens += 100  # Conservative estimate for message formatting
             
             context_limit = self.context_limit - 5000  # Buffer for prompt overhead
             if total_tokens > context_limit:
