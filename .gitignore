@@ -6,9 +6,13 @@ venv/
 # Data files
 data/
 
+# But keep the baseline dataset
+!data/baseline_1k.json
+
 
 # Irrelevant files
 questions.txt
 limitations.txt
 .env
 Summary Home Assignment.pdf
+report.docx
