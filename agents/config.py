@@ -15,3 +15,26 @@ RATES = {
     "gpt-5-mini": {"input": 0.25, "output": 2.00},
     "gpt-5.2-2025-12-11": {"input": 1.75, "output": 14.00}
 }
+
+# Deployment-accurate context window sizes (as of Jan 2026)
+# Values reflect the maximum INPUT tokens allowed before erroring
+CONTEXT_WINDOW = {
+    # Standard 4o series
+    "gpt-4o-mini": 128000, 
+    
+    # GPT-4.1 series: limited to 128k input in certain API configurations
+    "gpt-4.1-2025-04-14": 128000,
+    "gpt-4.1-mini-2025-04-14": 128000,
+    "gpt-4.1-nano-2025-04-14": 128000,
+    
+    # SFT models: inherit the parent's observed 128k input limit
+    "ft:gpt-4.1-mini-2025-04-14:tavily::CzWAcE6p": 128000,
+    "ft:gpt-4.1-nano-2025-04-14:tavily::CzX41hjk": 128000,
+    "ft:gpt-4.1-mini-2025-04-14:tavily::CzqO8otr": 128000,
+    "ft:gpt-4.1-nano-2025-04-14:tavily::Czr44ng2": 128000,
+    
+    # GPT-5 series: Advertised 400k, but restricted to 272k INPUT tokens
+    "gpt-5-nano": 272000,
+    "gpt-5-mini": 272000,
+    "gpt-5.2-2025-12-11": 272000
+}

@@ -4,7 +4,7 @@ import tiktoken
 from openai import OpenAI
 
 # Local Code
-from agents.config import RATES
+from agents.config import RATES, CONTEXT_WINDOW
 
 
 class LLMEngine:
@@ -29,6 +29,7 @@ class LLMEngine:
         # Validate model family: only 4o, 4.1, o1-o4, or >=5
         self.model = model
         self._validate_model_family()
+        self.context_limit = CONTEXT_WINDOW.get(model, 128000)  # Default to 128k if not found
         
         # Determine if model supports temperature parameter
         self.supports_temperature = self._check_temperature_support()
