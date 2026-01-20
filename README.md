@@ -146,13 +146,12 @@ Simplified SFT training workflow:
   - Data preparation and validation
   - Cost estimation (SFT-training rates)
   - Job submission to OpenAI
-  - **Real-time loss monitoring with moving average plots** (last 100 samples)
+  - Real-time loss monitoring with moving average plots (last 100 samples)
   - Model ID retrieval upon completion
 - **`get_model_info()`**: Retrieves fine-tuned model metadata
-- **Features**: Automatic loss data collection, moving average visualization, plot saving
 - **Assumptions**: Validated 64K token limit, known JSON structure
 
->> It is recommended for this task to use the `gpt-4.1` family.
+>> It is recommended for this task (SFT) to use the `gpt-4.1` family.
 
 ### 5. Benchmarking Suite (`evaluation/benchmark.py`)
 
@@ -172,9 +171,8 @@ Comprehensive evaluation pipeline with:
 
 1. **Baseline Dataset**: 1,000 web pages with original summaries
 2. **Gold Standard Creation**: GPT-5.2 generates high-quality reference summaries (constrained to ≤1500 characters)
-3. **Summary Length Filtering**: Only examples with summaries ≤1500 characters are considered for training
-4. **Train/Validation Split**: 
-   - Training set: Up to 50% of original dataset from samples meeting BOTH constraints (≤1500 chars AND ≤64K tokens)
+3. **Train/Validation Split**: 
+   - Training set: Up to 50% of original dataset from samples meeting BOTH constraints (≤1500 chars AND ≤64K context tokens)
    - Validation set: ALL remaining samples (including those >1500 chars or >64K tokens)
 
 >> This split ensures training data meets fine-tuning requirements while validation includes diverse, challenging examples. Summary length filtering prevents inheriting the base model's tendency for overly long summaries.
@@ -184,32 +182,11 @@ Comprehensive evaluation pipeline with:
 ### Fine-Tuning Process
 
 - **Models**: GPT-4.1-mini, GPT-4.1-nano
-- **Training Data**: 496 gold standard examples
+- **Training Data**: training gold standard examples (~500)
 - **Epochs**: 3
 - **Objective**: Distill GPT-5.2 performance into smaller models
 
-### Evaluation Pipeline
 
-```
-For each model:
-  ├─ If model == "Baseline":
-  │   ├─ Load pre-existing summaries from baseline_validation_benchmark.json
-  │   └─ Filter to match evaluation URLs
-  └─ Else:
-      ├─ Run inference on benchmark data
-      ├─ Track latency and costs
-      └─ Save results to JSON
-
-  ├─ Judge evaluation (for all models):
-  │   ├─ GPT-5.2 evaluates each summary
-  │   ├─ Scores: relevance, faithfulness, coherence, fluency, conciseness
-  │   └─ Track judge costs
-
-  └─ Aggregate statistics:
-      ├─ Mean scores across all dimensions
-      ├─ Average latency
-      └─ Estimated cost per 1K requests
-```
 
 ### Metrics Tracked
 
@@ -226,13 +203,11 @@ For each model:
 
 ## Benchmark Results
 
-<!-- Results will be populated after running the benchmark -->
-
 ### Model Comparison (99-item benchmark subset)
 
 | Model | Relevance | Faithfulness | Coherence | Fluency | Conciseness | Quality | Avg Latency | Cost/1K |
 |-------|-----------|--------------|-----------|---------|-------------|---------|-------------|---------|
-| Baseline | 2.28 | 4.44 | 2.18 | 2.84 | 2.12 | 2.77 | 0.0s | $0.00 |
+| Baseline | 2.28 | 4.44 | 2.18 | 2.84 | 2.12 | 2.77 | UNKNOWN | UNKNOWN |
 | gpt-4o-mini | 4.17 | 4.01 | 4.91 | 5.00 | 4.03 | 4.42 | 5.95s | $1.55 |
 | gpt-4.1-2025-04-14 | 4.52 | 4.00 | 4.94 | 5.00 | 4.10 | 4.51 | 7.14s | $20.84 |
 | gpt-4.1-mini-2025-04-14 | 4.35 | 3.97 | 4.92 | 4.98 | 3.99 | 4.44 | 6.50s | $4.20 |
@@ -266,7 +241,7 @@ For each model:
   - **Distillation Success**: Fine-tuned models achieve 4.42-4.61 quality vs base models
 
 - **Latency Analysis**:
-  - **Fastest**: GPT-4.1-nano (2.94s), Baseline (0.0s)
+  - **Fastest**: GPT-4.1-nano (2.94s)
   - **Slowest**: GPT-5-nano (19.27s), GPT-5-mini (15.43s)
   - **Balanced**: GPT-4o-mini (5.95s), FT models (3.40-6.40s)
 
@@ -289,8 +264,9 @@ OPENAI_API_KEY=your_api_key_here
 
 ## Limitations
 
-See [limitations.txt](limitations.txt) for detailed discussion of:
-- Token limit constraints (64K for training, 250K for validation)
-- Rate limiting considerations
-- Structured output requirements (GPT-5+ only)
-- Evaluation subjectivity
+1. The G-Eval benchmark relies on the underlying LLM capabilities and was not formally evaluated using human annotators to validate it's accuracy. Internal validation of the judge CoT is also important for production grade, ensuring scoring variance, criteria adherance etc.
+2. I decided at this stage to ignore (with a warning) requests longer than model context window, as these can be solved using multiple prompts, but from a monitary point of view this might be exploitable, and perhaps calls for a different solution.
+
+# Additional Production Improvements
+1. Batching the benchmarkings (making them not live) can save ~50% of the evaluation cost.
+2. Multiprocessing / async can cut multi requests running time as the major bottleneck is requests. This cannot be performed during benchmarking as rate limits and queue delays affect the latency.

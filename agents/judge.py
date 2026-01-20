@@ -101,6 +101,13 @@ class SummarizationJudge:
                 return None, 0.0
             return None
         
+        # Check if candidate_summary is None (failed inference)
+        if candidate_summary is None:
+            print(f"Warning: Cannot evaluate None summary")
+            if get_cost:
+                return None, 0.0
+            return None
+        
         # Add length score to the evaluation
         evaluation = json.loads(raw_output)
         char_length = len(candidate_summary)

@@ -72,6 +72,12 @@ class BenchmarkingSuite:
                     end_time = time.perf_counter()
                     
                     latency = end_time - start_time
+                    
+                    # Skip samples where inference failed (summary is None)
+                    if summary is None:
+                        print(f"\n⚠ Warning: Inference failed for {item['url']}, skipping...")
+                        continue
+                    
                     latencies.append(latency)
                     model_costs += cost
                     
@@ -92,6 +98,8 @@ class BenchmarkingSuite:
 
             # 3. Batch Judging with progress bar
             model_scores = []
+            judge_results = []  # Store individual judge results for saving
+            
             for inf in tqdm(model_inferences, desc=f"[{model_idx}/{total_models}] Judging", unit="sample"):
                 eval_result, j_cost = self.judge.evaluate(inf['source'], inf['summary'], get_cost=True)
                 total_judge_cost += j_cost
@@ -101,8 +109,17 @@ class BenchmarkingSuite:
                     print(f"\n⚠ Warning: Judge evaluation failed for {inf['url']}, skipping...")
                     continue
                 
-                # Merge judge scores with latency
-                res = eval_result['scores']
+                # Store judge result with URL for traceability
+                judge_result = {
+                    "url": inf['url'],
+                    "scores": eval_result['scores'],
+                    "justifications": eval_result.get('justifications', {}),
+                    "judge_cost": j_cost
+                }
+                judge_results.append(judge_result)
+                
+                # Merge judge scores with latency for stats
+                res = eval_result['scores'].copy()
                 res['latency'] = inf['latency']
                 
                 # Calculate quality score per evaluation (average of 5 judge dimensions)
@@ -112,6 +129,12 @@ class BenchmarkingSuite:
                 model_scores.append(res)
 
                 time.sleep(1.0)  # To respect rate limits
+
+            # Save judge results to JSON
+            judge_filename = f"data/judge_{model_name.replace(':', '_')}.json"
+            with open(judge_filename, 'w') as f:
+                json.dump(judge_results, f, indent=2)
+            print(f"✓ Judge results saved to {judge_filename}")
 
             # 4. Aggregate Stats
             df_model = pd.DataFrame(model_scores)
