@@ -104,6 +104,11 @@ class BenchmarkingSuite:
                 # Merge judge scores with latency
                 res = eval_result['scores']
                 res['latency'] = inf['latency']
+                
+                # Calculate quality score per evaluation (average of 5 judge dimensions)
+                judge_dimensions = ['relevance', 'faithfulness', 'coherence', 'fluency', 'conciseness']
+                res['quality'] = sum(res[dim] for dim in judge_dimensions) / len(judge_dimensions)
+                
                 model_scores.append(res)
 
                 time.sleep(1.0)  # To respect rate limits

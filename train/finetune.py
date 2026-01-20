@@ -9,10 +9,13 @@ Assumes:
 import json
 import os
 import time
+import re
 from pathlib import Path
 from typing import Optional
+from collections import deque
 
 import tiktoken
+import matplotlib.pyplot as plt
 from openai import OpenAI
 
 # Local code
@@ -88,8 +91,11 @@ def prepare_and_train(
     print(f"Fine-tuning job submitted: {job.id}")
     print(f"Monitor at: https://platform.openai.com/finetune/{job.id}\n")
     
-    # Monitor progress
+    # Monitor progress and collect loss data
     seen_events = set()
+    loss_data = []
+    moving_avg_window = 100
+    
     while True:
         job = client.fine_tuning.jobs.retrieve(job.id)
         
@@ -97,12 +103,76 @@ def prepare_and_train(
         for event in reversed(events.data):
             if event.id not in seen_events:
                 seen_events.add(event.id)
+                
+                # Extract loss from event message if present
+                # Try multiple patterns that OpenAI might use
+                loss_patterns = [
+                    r'loss: ([\d.]+)',           # loss: 0.123
+                    r'training loss=([\d.]+)',   # training loss=0.123
+                    r'loss=([\d.]+)',            # loss=0.123
+                    r'loss\s*=\s*([\d.]+)',      # loss = 0.123 (with spaces)
+                ]
+                
+                loss_value = None
+                for pattern in loss_patterns:
+                    loss_match = re.search(pattern, event.message, re.IGNORECASE)
+                    if loss_match:
+                        loss_value = float(loss_match.group(1))
+                        break
+                
+                if loss_value is not None:
+                    loss_data.append(loss_value)
+                
                 print(f"[{event.created_at}] {event.message}")
+                
+                # Debug: print first few events that might contain loss data
+                debug_count = sum(1 for e in seen_events if 'step' in event.message.lower() or 'loss' in event.message.lower())
+                if debug_count <= 3 and ('step' in event.message.lower() or 'loss' in event.message.lower()):
+                    print(f"  DEBUG: Checking message format: '{event.message}'")
         
         if job.status in ("succeeded", "failed", "cancelled"):
             break
         
         time.sleep(10)
+    
+    # Create loss plot if we have loss data
+    if loss_data:
+        # Calculate moving average
+        if len(loss_data) >= moving_avg_window:
+            moving_avg = []
+            window = deque(maxlen=moving_avg_window)
+            
+            for loss in loss_data:
+                window.append(loss)
+                if len(window) == moving_avg_window:
+                    moving_avg.append(sum(window) / len(window))
+            
+            # Create plot
+            plt.figure(figsize=(12, 6))
+            plt.plot(range(len(loss_data)), loss_data, alpha=0.3, color='blue', label='Raw Loss')
+            if moving_avg:
+                plt.plot(range(moving_avg_window-1, len(loss_data)), moving_avg, 
+                        color='red', linewidth=2, label=f'Moving Avg (last {moving_avg_window} samples)')
+            
+            plt.xlabel('Training Steps')
+            plt.ylabel('Loss')
+            plt.title(f'Fine-tuning Loss for {model}\nJob: {job.id}')
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            # Save plot
+            plot_path = f"data/loss_plot_{model.replace(':', '_')}_{job.id}.png"
+            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+            print(f"\n📊 Loss plot saved to: {plot_path}")
+            plt.close()
+        else:
+            print(f"\n⚠ Not enough loss data points ({len(loss_data)}) for moving average plot (need ≥{moving_avg_window})")
+    else:
+        print(f"\n⚠ No loss data found in training events")
+        print(f"   Checked {len(seen_events)} events")
+        print(f"   Expected patterns: 'loss: X.XX', 'training loss=X.XX', 'loss=X.XX'")
+        print(f"   This might be normal for some OpenAI fine-tuning jobs")
     
     if job.status != "succeeded":
         raise RuntimeError(f"Fine-tuning failed: {job.status}")
