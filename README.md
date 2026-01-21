@@ -268,7 +268,7 @@ python -m unittest discover tests/ -v
 python -m unittest tests.test_agents -v
 ```
 
-## Limitations
+# Limitations
 
 The G-Eval benchmark relies on the underlying LLM capabilities and was not formally evaluated using human annotators to validate it's accuracy. Internal validation of the judge CoT is also important for production grade, ensuring scoring variance, criteria adherance etc. In addition, this benchmark was conducted on a relatively small subset of the data, for cost and time considerations, making it stable enough, yet a larger scale validation may benefit with it.
 
