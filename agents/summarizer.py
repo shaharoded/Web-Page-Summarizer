@@ -34,7 +34,7 @@ class Summarizer:
             raise ValueError(f"Prompt template '{filename}' is empty or not as expected.")
         return content
     
-    def summarize(self, content, get_cost=True, max_retries=8, allow_long_context=False, reduce_input=True):
+    def summarize(self, content, get_cost=True, max_retries=3, allow_long_context=False, reduce_input=True):
         """
         Standardizes the summarization request format.
         Respects max_chars limit via self-correction loop.
@@ -67,7 +67,7 @@ class Summarizer:
         )
         total_cost += cost
         
-        # Handle failed API call
+        # Handle failed API call early to avoid None downstream
         if final_summary is None:
             if get_cost:
                 return None, total_cost
@@ -87,6 +87,12 @@ class Summarizer:
             ]
             final_summary, cost = self.engine.generate(refine_messages, get_cost=True)
             total_cost += cost
+
+            # If refinement fails, abort retries and propagate current state
+            if final_summary is None:
+                if get_cost:
+                    return None, total_cost
+                return None
 
         if get_cost:
             return final_summary, total_cost

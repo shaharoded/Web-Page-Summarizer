@@ -38,8 +38,7 @@ Web-Page-Summarizer/
 │   └── test_agents.py
 │
 ├── data/                            # Datasets (generated during runtime)
-│   ├── baseline_1k.json             # Original baseline summaries (for comparison)
-│   └── goldstandard_1k.json         # GPT-5.2 gold standard summaries (created in main.ipynb)
+│   └── baseline_1k.json             # Original baseline summaries (for comparison)
 │
 ├── main.ipynb                       # Main workflow notebook
 ├── requirements.txt                 # Python dependencies
@@ -205,49 +204,41 @@ Comprehensive evaluation pipeline with:
 
 ## Benchmark Results
 
-### Model Comparison (99-item benchmark subset)
+### Model Comparison on Evaluation Benchmark
 
-| Model | Relevance | Faithfulness | Coherence | Fluency | Conciseness | Quality | Length | Avg Latency | Cost/1K |
-|-------|-----------|--------------|-----------|---------|-------------|---------|--------|-------------|---------|
-| Baseline | 2.28 | 4.44 | 2.18 | 2.84 | 2.12 | 2.77 | 4.60 | UNKNOWN | UNKNOWN |
-| gpt-4o-mini | 4.17 | 4.01 | 4.91 | 5.00 | 4.03 | 4.42 | 4.80 | 5.95s | $1.55 |
-| gpt-4.1-2025-04-14 | 4.52 | 4.00 | 4.94 | 5.00 | 4.10 | 4.51 | 4.76 | 7.14s | $20.84 |
-| gpt-4.1-mini-2025-04-14 | 4.35 | 3.97 | 4.92 | 4.98 | 3.99 | 4.44 | 4.35 | 6.50s | $4.20 |
-| gpt-4.1-nano-2025-04-14 | 4.07 | 3.52 | 4.68 | 4.95 | 3.74 | 4.19 | 4.60 | 2.94s | $1.04 |
-| ft:gpt-4.1-mini (distilled) | 4.70 | 4.49 | 4.93 | 4.98 | 3.95 | 4.61 | 2.82 | 6.40s | $7.30 |
-| ft:gpt-4.1-nano (distilled) | 4.41 | 4.03 | 4.80 | 4.91 | 3.93 | 4.42 | 3.02 | 3.40s | $2.46 |
-| gpt-5-nano | 4.47 | 4.05 | 4.90 | 4.91 | 4.01 | 4.47 | 3.10 | 19.27s | $1.25 |
-| gpt-5-mini | 4.65 | 4.39 | 4.96 | 4.97 | 4.13 | 4.62 | 4.11 | 15.43s | $3.94 |
-| gpt-5.2-2025-12-11 | 4.81 | 4.69 | 4.96 | 5.00 | 4.06 | 4.70 | 2.90 | 6.90s | $21.50 |
+<div style="width:100%; max-width:1200px;">
+  <img src="images/benchmark_results.png" alt="Benchmark results table" style="width:100%; height:auto; display:block; margin: 0 auto;" />
+</div>
+
 
 ### Key Findings
 
-**Benchmark Results Summary (99-item validation subset):**
-
 - **Quality Rankings (1-5 scale)**:
-  - 🥇 **GPT-5.2**: 4.70 (gold standard)
-  - 🥈 **GPT-5-mini**: 4.62 (excellent quality, high latency)
-  - 🥉 **FT GPT-4.1-mini**: 4.61 (distilled model, great balance)
-  - **GPT-5-nano**: 4.47 (good quality, very slow)
-  - **GPT-4.1-2025-04-14**: 4.51 (solid performance)
-  - **FT GPT-4.1-nano**: 4.42 (efficient distilled model)
-  - **GPT-4o-mini**: 4.42 (fast, good quality)
-  - **GPT-4.1-mini**: 4.44 (balanced performance)
-  - **GPT-4.1-nano**: 4.19 (fastest, lower quality)
-  - **Baseline**: 2.77 (poor quality reference)
+  - 🥇 **GPT-5.2**: 4.63 (gold standard / teacher)
+  - 🥈 **FT GPT-4.1-mini**: 4.60 (distilled model)
+  - 🥉 **GPT-5-mini**: 4.58
 
-- **Cost-Performance Insights**:
-  - **Best Value**: GPT-4o-mini ($1.55/1K) with 4.42 quality
-  - **Most Efficient**: GPT-4.1-nano ($1.04/1K) with 4.19 quality
-  - **Premium**: GPT-5.2 ($21.50/1K) with 4.70 quality
-  - **Distillation Success**: Fine-tuned models achieve 4.42-4.61 quality vs base models
+- **Latency**:
+  - 🥇 **FT GPT-4.1-nano**: 4.90s (distilled model)
+  - 🥈 **GPT-4o-mini**: 8.76s
+  - 🥉 **FT GPT-4.1-mini**: 13.62s (distilled model)
 
-- **Latency Analysis**:
-  - **Fastest**: GPT-4.1-nano (2.94s)
-  - **Slowest**: GPT-5-nano (19.27s), GPT-5-mini (15.43s)
-  - **Balanced**: GPT-4o-mini (5.95s), FT models (3.40-6.40s)
+- **Cost-Performance (1k requests)**:
+  - 🥇 **GPT-4o-mini**: 1.24$
+  - 🥈 **FT GPT-4.1-nano**: 2.30$ (distilled model)
+  - 🥉 **GPT-5-nano**: 2.43$
 
-- **Distillation Effectiveness**: Fine-tuned GPT-4.1 models successfully capture ~90-95% of GPT-5.2 quality while being 2-3x cheaper and faster
+- **Length Adherence (1-5, higher is better)**
+  - ✅ **GPT-4o-mini**: 4.95 (best)
+  - ⚠️ **FT GPT-4.1-nano**: 4.12 (distilled model)
+  - ⚠️ **GPT-5.2**: 4.37 (gold standard / teacher)
+  - ⚠️ **FT GPT-4.1-mini**: 4.41 (distilled model)
+  - ⚠️ **GPT-5-nano**: 4.48
+  - Note: Lower adherence increases retries (up to `max_retries=3`), nudging cost and latency up.
+
+- **Distillation Effectiveness**
+  - 💎 **FT GPT-4.1-mini**: ~99% of teacher quality; cost ↓64% (≈1.78× better than base); closes 87% of the quality gap to the teacher.
+  - ⚡ **FT GPT-4.1-nano**: ~94% of teacher quality; cost ↓91% (≈1.68× better than base); closes 60% of the gap while staying very fast.
 
 ## Installation & Usage
 
@@ -279,20 +270,9 @@ python -m unittest discover tests/ -v
 python -m unittest tests.test_agents -v
 ```
 
-**Test Coverage:**
-- ✅ LLM Engine validation (model families, API keys, rates)
-- ✅ Tokenizer initialization and fallbacks
-- ✅ Temperature parameter support validation
-- ✅ Fine-tuned model format parsing
-- ✅ Summarizer agent initialization and templates
-- ✅ Judge agent initialization and schema loading
-- ✅ Map-reduce functionality for long contexts
-- ✅ Cost calculation and token counting
-
 ## Limitations
 
-1. The G-Eval benchmark relies on the underlying LLM capabilities and was not formally evaluated using human annotators to validate it's accuracy. Internal validation of the judge CoT is also important for production grade, ensuring scoring variance, criteria adherance etc.
-2. I decided at this stage to ignore (with a warning) requests longer than model context window, as these can be solved using multiple prompts, but from a monitary point of view this might be exploitable, and perhaps calls for a different solution.
+The G-Eval benchmark relies on the underlying LLM capabilities and was not formally evaluated using human annotators to validate it's accuracy. Internal validation of the judge CoT is also important for production grade, ensuring scoring variance, criteria adherance etc.
 
 # Additional Production Improvements
 1. Batching the benchmarkings (making them not live) can save ~50% of the evaluation cost.

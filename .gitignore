@@ -11,8 +11,6 @@ data/
 
 
 # Irrelevant files
-questions.txt
-limitations.txt
 .env
 Summary Home Assignment.pdf
 report.docx
