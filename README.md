@@ -2,8 +2,6 @@
 
 A comprehensive framework for benchmarking LLMs for web page summarization task using LLM-as-a-Judge methodology, including distillation flow on OpenAI models.
 
-**🎯 Key Results**: Fine-tuned GPT-4.1 models achieve 93-98% of GPT-5.2 quality at 2-3x lower cost and 2-5x faster inference.
-
 ## Overview
 
 This project implements a complete pipeline for:
