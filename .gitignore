@@ -1,5 +1,6 @@
 # Irrelevant repo files
 __pycache__/
+.pytest_cache/
 .venv/
 venv/
 
@@ -13,4 +14,3 @@ data/
 # Irrelevant files
 .env
 Summary Home Assignment.pdf
-report.docx

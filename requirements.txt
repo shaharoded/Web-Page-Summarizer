@@ -2,6 +2,7 @@ tiktoken
 openai
 scikit-learn
 pandas
+ipykernel
 
 jinja2
 matplotlib
